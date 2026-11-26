@@ -68,3 +68,13 @@ jobs:
 
       - name: Verificar aplicacion desplegada
         run: test -s deployment/test-environment/app.jar
+
+      - name: Ejecutar rollback si falla el despliegue
+        if: failure()
+        continue-on-error: true
+        run: |
+          if [ -f deployment/backup/app.jar ]; then
+            bash deployment/rollback.sh
+          else
+            echo "No existe una version anterior para recuperar."
+          fi
