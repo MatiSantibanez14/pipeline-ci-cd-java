@@ -1,5 +1,4 @@
-
-name: Pipeline CI - Java
+name: Pipeline CI CD - Java
 
 on:
   push:
@@ -9,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Compilar proyecto
+    name: Compilar y ejecutar pruebas
     runs-on: ubuntu-latest
 
     steps:
@@ -23,11 +22,11 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Compilar proyecto
-        run: mvn -B -DskipTests package
+      - name: Compilar y ejecutar pruebas
+        run: mvn -B clean verify
 
-      - name: Ejecutar pruebas automatizadas
-        run: mvn -B verify
+      - name: Generar archivo JAR
+        run: mvn -B package -DskipTests
 
       - name: Publicar reportes de pruebas
         if: always()
@@ -38,3 +37,34 @@ jobs:
             target/surefire-reports/
             target/failsafe-reports/
           if-no-files-found: warn
+
+      - name: Publicar aplicacion JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: aplicacion-java
+          path: target/pipeline-ci-cd-java-1.0-SNAPSHOT.jar
+
+  deploy:
+    name: Despliegue en ambiente de prueba
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar aplicacion JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: aplicacion-java
+          path: target
+
+      - name: Preparar ambiente de prueba
+        run: mkdir -p deployment/test-environment
+
+      - name: Ejecutar despliegue
+        run: bash deployment/deploy.sh
+
+      - name: Verificar aplicacion desplegada
+        run: test -s deployment/test-environment/app.jar
